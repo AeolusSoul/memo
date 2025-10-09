@@ -1,12 +1,9 @@
 Python Code
 
-
-Library Install
+LibraryのInstall
 
 cmd:
-pip install requests
-
-pip install beautifulsoup4
+pip install requests beautifulsoup4
 
 --
 Webスクレイピング
@@ -48,6 +45,12 @@ soup = BeautifulSoup(response.text, "html.parser")
 #タイトルタグ取得
 title=soup.find("title").text
 print(title)
+
+ページネーション（複数ページの処理）
+ログインが必要なサイトへのアクセス（Cookie/Session）
+スクレイピング＋自動化（SeleniumやPlaywright）
+JSON API直接取得（HTML解析不要）
+クラウド実行や定期実行（例：cron, Lambda）
 
 --
 以上
