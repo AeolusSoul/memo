@@ -1,0 +1,24 @@
+Python Settings
+
+Install
+
+python.org > download  > Install
+Install先：C:\Users\xxx\AppData\Local\Programs\Python\Python314
+
+--
+PATH通す
+
+タスクバー > 検索バー > システムの詳細設定 > 詳細設定 > 環境変数　> xxのユーザー環境変数 PATH 選択 > システム環境変数 PATH 選択 > システム環境変数 編集選択
+> 新規
+> C:\Users\xxx\AppData\Local\Programs\Python\Python314
+> 新規 
+C:\Users\xxx\AppData\Local\Programs\Python\Python314\Scripts
+> OK
+
+PowerShell
+cmd:
+python --vesion
+# Python 3.14.0
+
+--
+以上
