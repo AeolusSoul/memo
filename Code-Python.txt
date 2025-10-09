@@ -1,0 +1,53 @@
+Python Code
+
+
+Library Install
+
+cmd:
+pip install requests
+
+pip install beautifulsoup4
+
+--
+Webスクレイピング
+
+制約
+・Robots.txt
+
+必要なもの
+・データの取得先URL
+・欲しい情報のタグ
+
+ライブラリ
+  - requests 静的ページのHTML取得
+  - httpx 非同期通信
+  - BeautifulSoup4 HTMLを構文解析、特定のタグを抽出
+  - lxml HTML/XML解析
+  - html5lib
+  - Selenium JSで生成されるページから取得
+  - Playwright ブラウザ操作
+  - requests_html JSレンダリング 
+  - pandas データを表形式にしてCSV、Excelに保存
+  - json JSON形式のAPIレスポンスを扱う
+  - csv 取得データをcsvに出力
+      
+code
+
+#ライブラリ読み込み
+import requests
+from bs4 import BeautifulSoup
+
+#ページ取得
+url = ""
+headrers = {"User-Agent" : ""}
+respose = requests.get(url, headers=headers)
+
+#HTML解析
+soup = BeautifulSoup(response.text, "html.parser")
+
+#タイトルタグ取得
+title=soup.find("title").text
+print(title)
+
+--
+以上
