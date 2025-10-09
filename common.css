@@ -1,0 +1,27 @@
+@charset "utf-8";
+
+* {
+ font-family: "UD デジタル 教科書体 N-R", "Noto Sans JP", sans-serif;
+ text-align: justify;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+ font-family: "UD デジタル 教科書体 N-R", "Zen Kaku Gothic New", sans-serif;
+}
+
+.red {
+ color: orangered;
+}
+
+.blue {
+ color: darkblue;
+}
+
+.green {
+ color: darkgreen;
+}

@@ -1,0 +1,23 @@
+WIn11 Settings
+
+sound off
+
+OS Version
+https://learn.microsoft.com/ja-jp/windows/release-health/windows11-release-information
+
+Sleep off
+
+規定のアプリ
+
+拡張子表示
+
+キー割り当て
+
+クリーンアップ・デフラグ
+
+メモ帳
+
+Win Actor
+
+--
+以上

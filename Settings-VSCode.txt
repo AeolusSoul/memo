@@ -1,0 +1,38 @@
+
+VSCode Settings
+
+Install
+
+https://azure.microsoft.com/ja-jp/products/visual-studio-code
+>exeダウンロード
+>インストール
+
+--
+Extensions
+
+Python
+(Pylance)
+(Python Debugger)
+(Python Environments)
+
+--
+Japanese
+
+View > Command Pallet > Configure Display Language
+
+--
+Settings
+
+Font Size > 12
+
+FontFamily > Arial
+
+Word Wrap > on
+
+Tab Size 2
+
+--
+以上
+
+
+
