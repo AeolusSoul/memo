@@ -27,24 +27,58 @@ Webスクレイピング
   - pandas データを表形式にしてCSV、Excelに保存
   - json JSON形式のAPIレスポンスを扱う
   - csv 取得データをcsvに出力
-      
-code
 
-#ライブラリ読み込み
+--
+Script
+
+########################################
+# Webスクレイピング - 静的サイト単体ページ
+########################################
+
 import requests
 from bs4 import BeautifulSoup
 
-#ページ取得
-url = ""
-headrers = {"User-Agent" : ""}
-respose = requests.get(url, headers=headers)
+# デフォルトのUser-Agent
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/118.0.0.0 Safari/537.36"
+)
 
-#HTML解析
-soup = BeautifulSoup(response.text, "html.parser")
+def get_html_title(url, user_agent=None):
+    """
+    指定したURLの<title>タグを取得する関数。
 
-#タイトルタグ取得
-title=soup.find("title").text
-print(title)
+    Parameters:
+        url (str): 取得対象のURL
+        user_agent (str, optional): User-Agentヘッダー。未指定の場合はデフォルト値を使用。
+
+    Returns:
+        str | None: タイトルテキスト（取得できなかった場合はNone）
+    """
+    headers = {"User-Agent": user_agent or DEFAULT_USER_AGENT}
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
+    except requests.RequestException as e:
+        status_code = getattr(e.response, "status_code", "不明")
+        print(f"[Error] URL: {url} | Status: {status_code} | Detail: {e}")
+        return None
+
+    soup = BeautifulSoup(res.text, "html.parser")
+    title_tag = soup.find("title")
+    return title_tag.text.strip() if title_tag else None
+
+# 使用例
+if __name__ == "__main__":
+    url = "https://tenki.jp/forecast/3/12/"
+    title = get_html_title(url)
+    if title:
+        print("ページタイトル:", title)
+    else:
+        print("情報を取得できませんでした。")
+
+--
 
 ページネーション（複数ページの処理）
 ログインが必要なサイトへのアクセス（Cookie/Session）
