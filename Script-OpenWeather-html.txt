@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>7-02_api</title>
+    <link rel="shortcut icon" href="../../_common/images/favicon.ico">
+    <link href="https://fonts.googleapis.com/css?family=M+PLUS+1p:400,500" rel="stylesheet">
+    <link href="../../_common/css/style.css" rel="stylesheet">
+
+    <!-- ↓記述ココ -->
+    <link href="css/special.css" rel="stylesheet">
+
+    <!-- ↑記述ココ -->
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>Web APIを使ってみよう</h1>
+            <h2>ページに表示する</h2>
+        </div><!-- /.container -->
+    </header>
+    <main>
+        <div class="container">
+            <section>
+
+                <!-- ↓記述ココ -->
+                <h3 id="place"></h3>
+                <div id="now">
+                    <div id="weather">
+                    </div>
+                </div>
+                <table id="forecast">
+                </table>
+                <!-- ↑記述ココ -->
+
+            </section>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <p>JavaScript Samples</p>
+        </div>
+    </footer>
+    <script src="../../_common/scripts/jquery-3.4.1.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
