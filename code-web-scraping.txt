@@ -1,0 +1,291 @@
+########################################
+# Webスクレイピング - Webサイトからデータ取得・集計
+# 国立国会図書館
+# https://www.ndl.go.jp/
+########################################
+
+########################################
+# 1. ページのHTMLを取得する
+########################################
+
+# ライブラリ読み込み
+import requests
+import logging
+from bs4 import BeautifulSoup
+
+# ログ設定
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="ndl_scraping.log",
+    filemode="a"
+)
+
+# デフォルトのUser-Agent
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/118.0.0.0 Safari/537.36"
+)
+
+# 関数定義
+def fetch_html(url, user_agent=None):
+    """
+    指定したURLからHTMLテキストを取得する関数。
+
+    Parameters:
+        url (str): 取得対象のURL
+        user_agent (str, optional): User-Agentヘッダー（未指定時はデフォルト）
+
+    Returns:
+        Optional[str]: HTMLテキスト（取得できなかった場合はNone）
+    """
+    if not url.startswith("http"):
+        logging.error(f"[ERROR] 不正なURL形式: {url}")
+        return None
+    headers = {"User-Agent": user_agent or DEFAULT_USER_AGENT}
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
+        res.encoding = res.apparent_encoding
+        if not res.text.strip():
+            logging.warning(f"[WARNING] 1.HTMLが空です: {url}")
+            return None
+        logging.info(f"[SUCCESS] 1.HTML取得成功：URL = {url} | Status = {res.status_code}")
+        return res.text
+    except requests.RequestException as e:
+        status_code = getattr(e.response, "status_code", "不明")
+        logging.error(f"[ERROR] 1.HTML取得失敗: URL={url} | Status={status_code} | Detail={e}")
+        print(f"[Error] URL: {url} | Status: {status_code} | Detail: {e}")
+        return None
+
+########################################
+# 2. HTMLから情報を抽出する
+########################################
+
+# ライブラリ読み込み
+from datetime import datetime
+
+#関数定義
+def extract_news_dates(html):
+    """
+    HTMLテキストからページタイトルと新着情報の日付一覧を抽出する関数。
+
+    Parameters:
+        html (str): HTMLテキスト（<html>～</html>）
+
+    Returns:
+        dict | None: 以下の形式の辞書を返す（取得できなかった場合はNone）
+            {
+                "title": str | None,  # ページタイトル
+                "dates": list[datetime]  # 抽出された日付のリスト
+            }
+    """
+    try:
+        if not html or not html.strip():
+            logging.warning("[WARNING] 2.HTMLが空のため抽出をスキップ")
+            return None
+        soup = BeautifulSoup(html, "html.parser")
+        # ページタイトル(<title>)
+        title_tag = soup.find("title")
+        title = title_tag.text.strip() if title_tag else None
+        # 新着情報の日付(<li>)
+        dates = []
+        for li in soup.select(".newsList li"):
+            try:
+                date_str = li.contents[0].strip()
+                date_obj = datetime.strptime(date_str, "%Y年%m月%d日")
+                dates.append(date_obj)
+            except (ValueError, IndexError, AttributeError):
+                continue
+        if not dates:
+            logging.warning("[WARNING] 2.日付情報が抽出できませんでした")
+        logging.info(f"[SUCCESS] 2.情報抽出成功")
+        return {"title": title,"dates": dates}
+    except Exception as e:
+        logging.error(f"[ERROR] 2.情報抽出失敗: {e}")
+        return None
+
+########################################
+# 3. 月別件数を集計する
+########################################
+# ライブラリ読み込み
+from collections import Counter
+
+#関数定義
+def count_by_month(dates):
+    """
+    日付リストから月別の件数を集計する関数。
+
+    Parameters:
+        dates (list[datetime]): datetime型の日付リスト
+
+    Returns:
+        dict: 月ごとの件数を表す辞書（キー: "YYYY年MM月", 値: 件数）
+              例: {"2025年07月": 5, "2025年08月": 12}
+    """
+    try:
+        monthly_counts = Counter()
+        for date in dates:
+            key = date.strftime("%Y年%m月")
+            monthly_counts[key] += 1
+        logging.info(f"[SUCCESS] 3.月別件数集計成功")
+        return dict(sorted(monthly_counts.items()))
+    except Exception as e:
+        logging.error(f"[ERROR] 3.月別件数集計失敗: {e}")
+        return {}
+
+########################################
+# 4. 集計結果を表形式とグラフで出力する
+########################################
+# ライブラリ読み込み
+import matplotlib.pyplot as plt
+plt.rcParams['font.family'] = 'MS Gothic'  # 'IPAexGothic' 'Noto Sans CJK JP', 'MS Gothic'
+
+#関数定義
+def plot_monthly_counts(monthly_counts):
+    """
+    月別件数の集計結果を表示する関数（表形式と棒グラフ）。
+
+    Parameters:
+        monthly_counts (dict): 月ごとの件数を表す辞書
+            例: {"2025年07月": 5, "2025年08月": 12}
+
+    Returns:
+        None
+        ※ 標準出力に表形式を表示し、matplotlibでグラフを描画する。
+    """
+    try:
+        months = list(monthly_counts.keys())
+        counts = list(monthly_counts.values())
+        # 表形式
+        print("集計結果(表形式)：国立国会図書館 新着情報 月別件数")
+        for m, c in monthly_counts.items():
+            print(f"{m}: {c}件")
+        logging.info(f"[SUCCESS] 4-1.表形式の出力成功")
+        # グラフ
+        plt.figure(figsize=(10, 6))
+        plt.bar(months, counts, color="skyblue")
+        plt.xticks(rotation=45)
+        plt.title("集計結果(グラフ)：国立国会図書館 新着情報 月別件数")
+        plt.xlabel("月")
+        plt.ylabel("件数")
+        plt.tight_layout()
+        #グラフ画像保存（GUI環境でshowできない場合の備え）
+        plt.savefig("ndl_graph.png")
+        logging.info("[SUCCESS] 4-3.グラフ画像保存成功: ndl_graph.png")
+        #グラフ出力（showできる場合)
+        plt.show()
+        logging.info(f"[SUCCESS] 4-2.グラフの出力成功")
+    except Exception as e:
+        logging.error(f"[ERROR] 4.表またはグラフの出力失敗: {e}")
+
+########################################
+# 5. 集計結果をCSVとExcelで保存する
+########################################
+# ライブラリ読み込み
+
+# CSVファイルに保存
+import os
+import csv
+def save_dates_to_csv(dates, monthly_counts, filename="ndl_summary.csv"):
+    """
+    月別集計結果と日付一覧をCSVファイルに保存する関数。
+
+    Parameters:
+        dates (list[datetime]): 抽出された日付のリスト
+        monthly_counts (dict): 月ごとの件数を表す辞書
+            例: {"2025年07月": 5, "2025年08月": 12}
+        filename (str): 保存するCSVファイル名（デフォルト: "ndl_summary.csv"）
+
+    Returns:
+        None
+        ※ ファイル保存とログ出力を行う。保存失敗時はログにエラーを記録。
+    """
+    try:
+        with open(filename, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["月", "件数"])
+            for month, count in monthly_counts.items():
+                writer.writerow([month, f"{count}件"])
+            writer.writerow(["日付データ"])
+            for date in dates:
+                writer.writerow([date.strftime("%Y-%m-%d")])
+        full_path = os.path.abspath(filename)
+        logging.info(f"[SUCCESS] 5-1.CSV保存成功: {full_path}")
+        print("集計結果をCSVファイルに保存しました。")
+        print(f"保存先パス: {full_path}")
+    except Exception as e:
+        logging.error(f"[ERROR] 5-1.CSV保存失敗: {e}")
+
+# Excelファイルに保存
+import pandas as pd
+
+def save_to_excel(dates, monthly_counts, filename="ndl_summary.xlsx"):
+    """
+    月別集計結果と日付一覧をExcelファイルに保存する関数。
+
+    Parameters:
+        dates (list[datetime]): 抽出された日付のリスト
+        monthly_counts (dict): 月ごとの件数を表す辞書
+            例: {"2025年07月": 5, "2025年08月": 12}
+        filename (str): 保存するExcelファイル名（デフォルト: "ndl_summary.xlsx"）
+
+    Returns:
+        None
+        ※ Excelファイルに2つのシート（"月別集計", "日付データ"）を作成し保存。ログ出力あり。
+    """
+    try:
+        # 日付一覧データフレーム
+        df_dates = pd.DataFrame({
+            "日付": [date.strftime("%Y-%m-%d") for date in dates]
+        })
+        # 月別集計データフレーム
+        df_summary = pd.DataFrame({
+            "月": list(monthly_counts.keys()),
+            "件数": list(monthly_counts.values())
+        })
+        # Excelファイルに書き込み
+        with pd.ExcelWriter(filename, engine="openpyxl") as writer:
+            df_summary.to_excel(writer, sheet_name="月別集計", index=False)
+            df_dates.to_excel(writer, sheet_name="日付データ", index=False)
+        full_path = os.path.abspath(filename)
+        logging.info(f"[SUCCESS] 5-2.Excel保存成功: {full_path}")
+        print("Excelファイルに保存しました。")
+        print(f"保存先パス: {full_path}")
+    except Exception as e:
+        logging.error(f"[ERROR] 5-2.Excel保存失敗: {e}")
+
+########################################
+# メイン処理
+########################################
+#ライブラリ
+import time
+#関数定義
+def main():
+    logging.info("[INFO] スクレイピング処理開始")
+    try:
+        url = "https://www.ndl.go.jp/jp/news/index.html"
+        logging.info("[INFO] サーバ負荷対策として1秒待機中...")
+        time.sleep(1) #SV負荷軽減：リクエスト前に1秒待機
+        html = fetch_html(url)
+        if html:
+            info = extract_news_dates(html)
+            if info and info["dates"]:
+                monthly_counts = count_by_month(info["dates"])
+                plot_monthly_counts(monthly_counts)
+                save_dates_to_csv(info["dates"], monthly_counts)
+                save_to_excel(info["dates"], monthly_counts)
+                logging.info("[SUCCESS] メイン全処理完了")
+            else:
+                logging.warning("[WARNING] メイン抽出結果が空のため処理を中断")
+        else:
+            logging.warning("[WARNING] メインHTML取得に失敗したため処理を中断")
+    except Exception as e:
+        logging.error(f"[ERROR] メイン処理中に例外発生: {e}")
+    logging.info("[INFO] スクレイピング処理終了")
+
+#実行
+if __name__ == "__main__":
+    main()
