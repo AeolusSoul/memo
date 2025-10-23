@@ -1,0 +1,85 @@
+
+Microsoft Power Platform
+
+Microsoftが提供するローコード・ノーコード開発プラットフォーム
+GUI操作で、アプリやワークフロー、ダッシュボードなどを作成可能
+
+--
+e-learning
+
+Microsoft Ignite イグナイト
+年次カンファレンス
+Learn：https://learn.microsoft.com/ja-jp/
+
+URL: https://learn.microsoft.com/ja-jp/training/browse/
+
+--
+プラットフォームの種類
+
+Power Apps
+社内向けキャンバスアプリケーションの作成
+
+Power Automate
+RPA ワークフローの自動化と最適化
+
+Power BI
+データ分析・可視化・レポート作成
+
+Power Pages
+外部向けWebサイト
+
+データコネクタ
+
+
+AI Builder
+
+
+Dataverse
+
+
+--
+用語
+
+ソリューション
+
+トリガー
+
+アクション
+
+コネクタ
+
+Power Fx
+Power Platform内のローコード プログラミング言語
+Excelのような式
+
+--
+Power Platform ソリューション
+
+アプリケーションのライフサイクル管理を行う仕組み
+
+
+--
+Power Apps
+
+コンポーネント
+|-キャンバス アプリ
+  role： UI
+  作成開始：データから(Lists・SharePointのデータを使う)
+          サンプルから(テンプレート)
+          Dataverse ソースから(Excelのテーブルデータ)
+          空のキャンバスから
+          AppSource 経由(Web上のDynamics365で探索)
+|-モデル駆動型アプリ
+  role: DB
+  作成開始：Dataverseのデータ構造を基に自動的にUIを生成
+|-マイクロソフト Dataverse
+  role: データ基盤 DB
+        モデル駆動型アプリの基盤
+
+--
+
+
+手順
+
+1.ソリューションの新規作成
+PJのコンテナを作成し、
