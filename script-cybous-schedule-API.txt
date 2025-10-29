@@ -1,0 +1,344 @@
+
+◾️Cybous Garoon 詳細ページのパラメータ All
+{
+  "id": "123456",
+  "eventType": "NORMAL",         // 通常 or 終日 or 繰り返しなど
+  "subject": "定例会議",
+  "notes": "Zoom URL: https://example.com/xxx",
+  "location": "会議室A",
+  "start": "2025-10-30T10:00:00Z",
+  "end": "2025-10-30T11:00:00Z",
+  "allDay": false,
+  "showAs": "BUSY",              // 空き状況
+  "creator": {
+    "id": "user003",
+    "code": "taro",
+    "name": "山田太郎"
+  },
+  "attendees": [
+    {
+      "id": "user002",
+      "code": "hanako",
+      "name": "佐藤花子",
+      "type": "USER",
+      "attendanceType": "REQUIRED"
+    }
+  ],
+  "facilities": [
+    {
+      "id": "fac001",
+      "name": "第一会議室"
+    }
+  ],
+  "recurrence": {
+    "cycle": "WEEKLY",
+    "interval": 1,
+    "dayOfWeek": ["MON"],
+    "endDate": "2025-12-31"
+  },
+  "attachments": [
+    {
+      "id": "att001",
+      "name": "議事録.docx",
+      "size": 123456
+    }
+  ],
+  "url": "https://your-domain.cybozu.com/g/schedule/view.csp?event=123456"
+}
+
+◾️prompt
+これらの情報をREST APIで取得するPythonコードを書く
+事前に決まっているもの
+・期間 本日の日付から今週の日から土を自動取得
+・一意の表示名(表示ID)の期間分のスケジュールの詳細ページの情報を全て取得する
+・取得した情報をExcelで出力する
+・取得した情報から必要な項目を抽出し、Excelで出力する
+・defでオブジェクト指向で記述する
+・try文エラー処理も厳密に管理する。
+・開発用にlog()でPowerShellに実行した関数名とその結果を出力したい。(本番環境ではOFF)
+
+◾️pip
+pip install requests pandas openpyxl python-dateutil
+
+◾️script
+#!/usr/bin/env python3
+"""
+garoon_fetch_oop.py
+
+説明:
+  - Garoon REST API から指定ユーザーのスケジュールを取得し、Excel 出力
+  - オブジェクト指向 + 厳密な例外処理 + 開発ログ出力対応
+
+必要:
+  pip install requests pandas openpyxl python-dateutil
+"""
+
+import argparse
+import base64
+import datetime
+import inspect
+import json
+import sys
+from zoneinfo import ZoneInfo
+
+import pandas as pd
+import requests
+from dateutil import tz
+
+
+# ==========================
+# 設定セクション
+# ==========================
+BASE_URL = "https://your-domain.cybozu.com"
+USERNAME = "your_login_name"
+PASSWORD = "your_password"
+OUTPUT_XLSX = "garoon_events_{display_id}_{start}_{end}.xlsx"
+
+DEVELOP_MODE = True  # 開発時: True, 本番: False
+
+
+def log(*args, **kwargs):
+    """PowerShell開発用ログ出力"""
+    if DEVELOP_MODE:
+        frame = inspect.currentframe().f_back
+        func = frame.f_code.co_name
+        print(f"[DEV][{func}]", *args, **kwargs)
+
+
+# ==========================
+# Garoon APIクライアント
+# ==========================
+class GaroonClient:
+    def __init__(self, base_url, username, password):
+        self.base_url = base_url.rstrip("/")
+        self.username = username
+        self.password = password
+        self.headers = self._make_auth_header()
+        log("GaroonClient 初期化完了")
+
+    def _make_auth_header(self):
+        creds = f"{self.username}:{self.password}".encode("utf-8")
+        enc = base64.b64encode(creds).decode("utf-8")
+        return {"X-Cybozu-Authorization": enc, "Accept": "application/json"}
+
+    def get_user_by_display_id(self, display_id: str):
+        """ユーザー情報取得"""
+        try:
+            url = f"{self.base_url}/g/api/v1/base/users"
+            params = {"name": display_id, "limit": 100}
+            resp = requests.get(url, headers=self.headers, params=params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            users = data.get("users") or data.get("result") or data
+            if not users:
+                raise ValueError(f"ユーザーが見つかりません: {display_id}")
+            user = users[0]
+            log("ユーザー取得成功:", user)
+            return user
+        except requests.exceptions.RequestException as e:
+            log("ユーザー取得失敗:", e)
+            raise
+        except Exception as e:
+            log("予期せぬエラー(get_user_by_display_id):", e)
+            raise
+
+    def get_events(self, user_id: str, start: str, end: str):
+        """スケジュール一覧取得"""
+        try:
+            url = f"{self.base_url}/g/api/v1/schedule/events"
+            limit = 200
+            offset = 0
+            all_events = []
+
+            while True:
+                params = {
+                    "target": user_id,
+                    "targetType": "user",
+                    "rangeStart": start,
+                    "rangeEnd": end,
+                    "limit": limit,
+                    "offset": offset,
+                    "orderBy": "start asc"
+                }
+                log("イベント一覧取得中:", params)
+                resp = requests.get(url, headers=self.headers, params=params, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                events = data.get("events") or data.get("result") or data
+                if isinstance(events, dict) and "events" in events:
+                    events = events["events"]
+                if not isinstance(events, list):
+                    events = []
+                all_events.extend(events)
+                log(f"取得件数: {len(events)} (累計 {len(all_events)})")
+                if len(events) < limit:
+                    break
+                offset += len(events)
+            return all_events
+        except requests.exceptions.RequestException as e:
+            log("イベント一覧取得失敗:", e)
+            raise
+        except Exception as e:
+            log("予期せぬエラー(get_events):", e)
+            raise
+
+    def get_event_detail(self, event_id: str):
+        """予定の詳細取得"""
+        try:
+            url = f"{self.base_url}/g/api/v1/schedule/events/{event_id}"
+            log("詳細取得:", url)
+            resp = requests.get(url, headers=self.headers, timeout=30)
+            resp.raise_for_status()
+            detail = resp.json()
+            log("詳細取得成功:", event_id)
+            return detail
+        except requests.exceptions.RequestException as e:
+            log("詳細取得失敗:", event_id, e)
+            raise
+        except Exception as e:
+            log("予期せぬエラー(get_event_detail):", e)
+            raise
+
+
+# ==========================
+# Excel出力クラス
+# ==========================
+class GaroonExporter:
+    def __init__(self, filename):
+        self.filename = filename
+
+    @staticmethod
+    def extract_event(event_detail: dict):
+        """Excel用に項目抽出"""
+        try:
+            out = {
+                "id": event_detail.get("id"),
+                "subject": event_detail.get("subject"),
+                "notes": event_detail.get("notes"),
+                "location": event_detail.get("location"),
+                "start": event_detail.get("start"),
+                "end": event_detail.get("end"),
+                "allDay": event_detail.get("allDay"),
+                "showAs": event_detail.get("showAs"),
+            }
+
+            creator = event_detail.get("creator") or {}
+            out["creator_name"] = creator.get("name")
+            out["creator_code"] = creator.get("code")
+
+            attendees = event_detail.get("attendees") or []
+            out["attendees"] = ", ".join(
+                [a.get("name") or a.get("code") or str(a.get("id")) for a in attendees]
+            )
+            out["attendee_count"] = len(attendees)
+
+            facilities = event_detail.get("facilities") or []
+            out["facilities"] = ", ".join([f.get("name") for f in facilities if f.get("name")])
+
+            out["recurrence"] = json.dumps(event_detail.get("recurrence") or {}, ensure_ascii=False)
+            out["url"] = event_detail.get("url")
+            log("抽出完了:", out["subject"])
+            return out
+        except Exception as e:
+            log("extract_event エラー:", e)
+            raise
+
+    def export(self, raw_data: list, extracted_data: list):
+        """Excel出力"""
+        try:
+            log("Excel出力開始:", self.filename)
+            df_raw = pd.DataFrame(
+                [
+                    {"id": d.get("id"), "subject": d.get("subject"), "json": json.dumps(d, ensure_ascii=False, indent=2)}
+                    for d in raw_data
+                ]
+            )
+            df_extracted = pd.DataFrame(extracted_data)
+
+            with pd.ExcelWriter(self.filename, engine="openpyxl") as writer:
+                df_raw.to_excel(writer, sheet_name="raw_events", index=False)
+                df_extracted.to_excel(writer, sheet_name="extracted", index=False)
+            log("Excel出力完了:", self.filename)
+        except Exception as e:
+            log("Excel出力エラー:", e)
+            raise
+
+
+# ==========================
+# ユーティリティ
+# ==========================
+def get_week_range():
+    """今日〜今週土曜日の範囲を返す"""
+    tz_tokyo = ZoneInfo("Asia/Tokyo")
+    today = datetime.datetime.now(tz_tokyo).date()
+    weekday = today.weekday()
+    saturday = today + datetime.timedelta(days=(5 - weekday if weekday <= 5 else 12 - weekday))
+    start_dt = datetime.datetime.combine(today, datetime.time(0, 0, 0, tzinfo=tz_tokyo))
+    end_dt = datetime.datetime.combine(saturday, datetime.time(23, 59, 59, tzinfo=tz_tokyo))
+    return start_dt.isoformat(), end_dt.isoformat(), today, saturday
+
+
+# ==========================
+# メイン処理
+# ==========================
+def main():
+    parser = argparse.ArgumentParser(description="Garoon スケジュール取得 (OOP版)")
+    parser.add_argument("--display-id", required=True, help="Garoonの表示ID(ログイン名)")
+    parser.add_argument("--base-url", default=BASE_URL)
+    parser.add_argument("--username", default=USERNAME)
+    parser.add_argument("--password", default=PASSWORD)
+    parser.add_argument("--out", default=None)
+    args = parser.parse_args()
+
+    try:
+        # クライアント初期化
+        client = GaroonClient(args.base_url, args.username, args.password)
+
+        # 日付範囲
+        range_start, range_end, today, saturday = get_week_range()
+        log("期間:", range_start, range_end)
+
+        # ユーザー取得
+        user = client.get_user_by_display_id(args.display_id)
+        user_id = user.get("id")
+
+        # イベント一覧
+        events = client.get_events(user_id, range_start, range_end)
+        print(f"取得イベント数: {len(events)}")
+
+        # 各イベント詳細取得
+        details = []
+        extracted = []
+        for ev in events:
+            ev_id = ev.get("id")
+            if not ev_id:
+                continue
+            try:
+                detail = client.get_event_detail(ev_id)
+                details.append(detail)
+                extracted.append(GaroonExporter.extract_event(detail))
+            except Exception as e:
+                log(f"詳細取得失敗 id={ev_id}:", e)
+
+        # Excel 出力
+        output_file = args.out or OUTPUT_XLSX.format(
+            display_id=args.display_id, start=today.isoformat(), end=saturday.isoformat()
+        )
+        exporter = GaroonExporter(output_file)
+        exporter.export(details, extracted)
+
+        print(f"✅ Excel 出力完了: {output_file}")
+
+    except Exception as e:
+        print("❌ エラー発生:", e)
+        if DEVELOP_MODE:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+--
+以上
