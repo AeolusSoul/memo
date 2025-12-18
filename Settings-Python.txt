@@ -1,3 +1,169 @@
+from openpyxl import Workbook, load_workbook
+wb = Workbook()
+ws = wb.active
+ws["A1"] = "test"
+wb.save("test.xlsx")
+wb2 = load_workbook("test.xlsx")
+
+from openpyxl import Workbook, load_workbook
+path = r"C:\temp\check.xlsx"
+wb = Workbook()
+wb.save(path)
+wb2 = load_workbook(path)
+print("OK")
+
+サーバのフォルダパス定義
+サーバのフォルダを検索
+サーバのファイル名定義
+サーバのファイルを検索
+存在するファイルの最新更新日を変数に登録
+ファイルの有無エラーフラグつける
+ローカルの元フォルダ定義
+ローカルの先フォルダ定義
+ファイル有無エラーなければ、サーバの最新更新日のファイルをローカルの元フォルダへコピー
+コピーしたローカルの元ファイルの〇〇シートを読み込み、シート全体コピー、先ファイルに新規シートを追加、シート名workへ変更、A1にペーストする
+1シート目の名前変更
+今回_更新日_ファイルの最新更新日
+2シート目の名前変更
+前回_更新日_先フォルダの前回のファイルフォルダのファイルの更新日
+項目名の定義
+業務番号
+業務名
+URL
+workシート目検索開始
+wordシートの業務番号を検索し、行番号、列番号を取得し、変数に格納
+業務番号のひとつ下のセルを開始位置とし、最終行までのセル範囲のデータをコピーし、今回シートの業務名のひとつしたのセルを開始位置としてペースト
+同様に、同じ行を業務名で検索し、セル範囲のデータをＢ3へペースト
+同様に、同じ行を左から初期照査で検索し、その位置から最もURLの項目を検索し、セル範囲のデータを〇〇へペースト
+元ファイル閉じる
+先ファイル上書き保存して閉じる
+
+前の関数から引き継ぐもの
+開始行番号
+列番号
+セル範囲
+各URLの列番号
+
+先ファイルを読み込む
+
+セル範囲のアクセス日に本日の日付yyyy/mm/ddを入力
+
+セル範囲の初期照査URL項目の入力有無判定
+入力なしの場合、アクセス日からURLまでの間のセルにはいふんを入力
+
+入力ある場合、フォルダかファイルのURLか末尾の拡張子の有無で判別
+
+ファイルの場合、
+ファイル有無に◯を入力
+ファイル・フォルダの合計に1を入力
+更新日にファイルの更新日を入力
+
+フォルダの場合、
+ファイル有無にフォルダ内ファイル検索し、あれば◯、なければ✖️
+ファイル・フォルダの合計に、フォルダ内のファイルとフォルダをカウント、合計数を入力
+更新日にフォルダ内にあるファイルで最もファイルの更新日が最新のファイルの更新日を入力
+
+
+これらを変数に持たせておいて、
+最後にまとめてエクセルに書き出す
+
+
+
+
+Python Code
+
+LibraryのInstall
+
+cmd:
+pip install requests beautifulsoup4
+
+--
+Webスクレイピング
+
+制約
+・Robots.txt
+
+必要なもの
+・データの取得先URL
+・欲しい情報のタグ
+
+ライブラリ
+  - requests 静的ページのHTML取得
+  - httpx 非同期通信
+  - BeautifulSoup4 HTMLを構文解析、特定のタグを抽出
+  - lxml HTML/XML解析
+  - html5lib
+  - Selenium JSで生成されるページから取得
+  - Playwright ブラウザ操作
+  - requests_html JSレンダリング 
+  - pandas データを表形式にしてCSV、Excelに保存
+  - json JSON形式のAPIレスポンスを扱う
+  - csv 取得データをcsvに出力
+
+--
+Script
+
+########################################
+# Webスクレイピング - 静的サイト単体ページ
+########################################
+
+import requests
+from bs4 import BeautifulSoup
+
+# デフォルトのUser-Agent
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/118.0.0.0 Safari/537.36"
+)
+
+def get_html_title(url, user_agent=None):
+    """
+    指定したURLの<title>タグを取得する関数。
+
+    Parameters:
+        url (str): 取得対象のURL
+        user_agent (str, optional): User-Agentヘッダー。未指定の場合はデフォルト値を使用。
+
+    Returns:
+        str | None: タイトルテキスト（取得できなかった場合はNone）
+    """
+    headers = {"User-Agent": user_agent or DEFAULT_USER_AGENT}
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
+    except requests.RequestException as e:
+        status_code = getattr(e.response, "status_code", "不明")
+        print(f"[Error] URL: {url} | Status: {status_code} | Detail: {e}")
+        return None
+
+    soup = BeautifulSoup(res.text, "html.parser")
+    title_tag = soup.find("title")
+    return title_tag.text.strip() if title_tag else None
+
+# 使用例
+if __name__ == "__main__":
+    url = "https://tenki.jp/forecast/3/12/"
+    title = get_html_title(url)
+    if title:
+        print("ページタイトル:", title)
+    else:
+        print("情報を取得できませんでした。")
+
+--
+
+ページネーション（複数ページの処理）
+ログインが必要なサイトへのアクセス（Cookie/Session）
+スクレイピング＋自動化（SeleniumやPlaywright）
+JSON API直接取得（HTML解析不要）
+クラウド実行や定期実行（例：cron, Lambda）
+
+--
+以上
+
+
+
+
 Python Settings
 
 Install
