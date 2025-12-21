@@ -1,6 +1,115 @@
 import win32com.client
 import subprocess
 import time
+import os
+import pandas as pd
+import requests
+from datetime import datetime
+
+# --- 設定エリア ---
+SOURCE_FILE = r"C:\path\to\labeled_file.xlsx"  # ラベル付きブック
+SHEET_NAME = "〇〇"
+TEMP_CSV = "temp_data.csv"
+OUTPUT_FILE = "result_judgment.xlsx"
+
+def clean_excel_process():
+    """実行前にExcelプロセスを完全に掃除"""
+    subprocess.run('taskkill /F /IM excel.exe /T', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+    time.sleep(1)
+
+def export_sheet_to_csv(excel_path, sheet_name, csv_path):
+    """ラベル付きブックを開き、特定のシートをCSVで保存する"""
+    excel = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        
+        wb = excel.Workbooks.Open(os.path.abspath(excel_path))
+        ws = wb.Sheets(sheet_name)
+        
+        # FileFormat=6 は CSV (UTF-8なら62ですが、Excel互換の6が安定)
+        ws.SaveAs(os.path.abspath(csv_path), FileFormat=6)
+        
+        wb.Close(False)
+        print(f"CSV変換成功: {csv_path}")
+    finally:
+        if excel:
+            excel.Quit()
+            excel = None
+
+def process_data():
+    """pandasでデータを加工し、URL判定を行う"""
+    # 1. CSV読み込み (Excel出力のCSVはShift-JISが多い)
+    df_raw = pd.read_csv(TEMP_CSV, encoding='shift_jis', header=None)
+
+    # 2. キーワード検索（「業務番号」「業務名」「URL」の座標を探す）
+    # df.stack()で全セルを走査し、キーワードの行・列を特定
+    def find_coords(keyword):
+        res = df_raw[df_raw == keyword].stack().index
+        return res[0] if len(res) > 0 else (None, None)
+
+    row_num, col_num = find_coords("業務番号")
+    row_name, col_name = find_coords("業務名")
+    row_url, col_url = find_coords("URL")
+
+    if row_num is None:
+        print("キーワードが見つかりませんでした。")
+        return
+
+    # 3. データ範囲の確定
+    # キーワードの1つ下の行からデータを取得
+    nums = df_raw.iloc[row_num + 1:, col_num].reset_index(drop=True)
+    names = df_raw.iloc[row_name + 1:, col_name].reset_index(drop=True)
+    urls = df_raw.iloc[row_url + 1:, col_url].reset_index(drop=True)
+
+    # 新しいデータフレームを作成
+    new_df = pd.DataFrame({
+        '業務番号': nums,
+        '業務名': names,
+        'URL': urls
+    }).dropna(how='all') # 全て空の行は削除
+
+    # 4. 列の挿入（本日日付）
+    new_df['判定日'] = datetime.now().strftime("%Y/%m/%d")
+
+    # 5. URLアクセス判定
+    def check_access(url):
+        if not isinstance(url, str) or not url.startswith("http"):
+            return "×"
+        try:
+            # タイムアウトを短めに設定して高速化
+            response = requests.get(url, timeout=5, allow_redirects=True)
+            return "〇" if response.status_code == 200 else "×"
+        except:
+            return "×"
+
+    print("URL判定中...")
+    new_df['判定結果'] = new_df['URL'].apply(check_access)
+
+    # 6. 列の並び替え (A:番号, B:名, C:判定結果, D:判定日, E:URL)
+    # pandasなら列名のリストを渡すだけで一瞬で入れ替わります
+    final_df = new_df[['業務番号', '業務名', '判定結果', '判定日', 'URL']]
+
+    # 7. Excelとして保存
+    final_df.to_excel(OUTPUT_FILE, index=False)
+    print(f"結果を保存しました: {OUTPUT_FILE}")
+
+# --- 実行 ---
+if __name__ == "__main__":
+    clean_excel_process() # 掃除
+    export_sheet_to_csv(SOURCE_FILE, SHEET_NAME, TEMP_CSV) # 変換
+    process_data() # 加工・判定
+    
+    # 後片付け（一時CSVの削除）
+    if os.path.exists(TEMP_CSV):
+        os.remove(TEMP_CSV)
+
+
+
+import win32com.client
+import subprocess
+import time
 import gc
 from datetime import datetime
 
