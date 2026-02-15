@@ -1,0 +1,233 @@
+
+必要な契約
+・Microsoft 365 Business Basic ¥899
+・Azure ポータルへのログイン(サブスク契約なしでok)
+
+--
+1.Microsoft 365 Business Basic契約
+
+URL:
+https://www.microsoft.com/ja-jp/microsoft-365/business/microsoft-365-plans-and-pricing
+↓
+無料で試す
+↓
+テナント名(会社のドメイン)：xxx.onmicrosoft.com
+管理者アカウント(全権限)： aaa@xxx.onmicrosoft.com
+↓
+契約後、Microsoft 365 管理センターへアクセス
+URL:
+https://admin.microsoft.com
+↓
+管理者アカウントでログインでいていればok
+
+--
+2.SharePointサイト作成
+
+Microsoft 365 管理センター開く
+URL:
+https://admin.microsoft.com
+↓
+サイドメニュー
+管理センター > Sharepoint
+↓
+サイドメニュー
+サイト > アクティブなサイト > 作成 > チームサイト > 標準チーム > テンプレートを使用
+↓
+サイト名：test
+サイトの説明：test
+グループメールアドレス：test
+サイトアドレス：https://xxx.sharepoint.com/sites/test
+グループの所有者：自分の名前表選択
+次へ
+↓
+プライバシーの設定：プライベート
+言語の選択：日本語
+タイムゾーン：(UTC+09:00)大阪、札幌、東京
+サイトの作成
+↓
+メンバーの追加：空白でok
+完了
+↓
+アクティブなサイトにtestが追加される
+URL:
+https://xxx.sharepoint.com/sites/test
+
+--
+3.SharePointサイト内にフォルダ作成
+
+アクティブなサイト>testのURLクリック
+↓
+サイドバー>ドキュメント
+↓
+作成またはアップロード > フォルダー 
+↓
+名前：test_app  
+
+--
+2.SharePointサイト>test_appにPDFファイルアップロード
+
+SharePoint > ドキュメント > test_app開く
+↓
+作成またはアップロード > ファイルのアップロード
+↓
+ローカルのPDFファイルを選択し、アップロード
+↓
+いくつかアップロードしておく
+
+--
+4.AzureポータルにBusinessアカウントで入り、アプリケーションの登録
+
+Azureポータルへアクセス
+https://portal.azure.com
+↓
+管理者アカウントでログインでいていればok
+aaa@xxx.onmicrosoft.com
+↓
+Microsoft Entra ID
+↓
+クイック アクション > アプリケーションの登録を追加
+↓
+名前：test_app
+サポートされているアカウントの種類：シングルテナントのみ
+リダイレクトURI：空白
+登録
+↓
+アプリが登録される・ID控える
+表示名：test_app
+アプリケーション (クライアント)ID：aaa
+オブジェクトID：bbb
+ディレクトリ (テナント) ID:ccc
+サポートされているアカウント：所属する組織のみ
+↓
+Client Secret作成
+クライアントの資格情報 > 証明書またはシークレットの追加
+↓
+新しいクライアントシークレット
+↓
+説明：test_app
+有効期限：推奨180日(6ヶ月)
+追加
+↓
+作成される・値控える
+有効期限：2026/8/14
+値(一度しか表示されない)：xxx
+シークレットID：xxx
+↓
+APIアクセス許可
+サイドバー > APIのアクセス許可 > アクセス許可の追加
+↓
+APIアクセス許可の要求 > Microsofr Graph > アプリケーションの許可
+↓
+チェック入れる
+Files > Files.Read.ALl
+Sites > Sites.Read.All
+アクセス許可の追加
+↓
+〇〇に管理者の同意を与えます
+はい
+↓
+状態：〇〇に付与されました
+となる
+
+--
+5.ローカルにPython作成
+
+cmd:
+mkdir sp-test
+cd sp-test
+python3 -m venv venv
+source venv/bin/activate
+pip install requests
+↓
+cmd:
+touch app.py
+↓
+.pyの中身記述
+import requests
+
+# ===== あなたの情報を入力 =====
+tenant_id = "アプリケーションID"
+client_id = "ディレクトリID"
+client_secret = "クライアントシークレット値"
+site_hostname = "xxx.sharepoint.com"
+site_path = "/sites/test"
+folder_path = "test_app"
+# ============================
+
+# 1️⃣ アクセストークン取得
+token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+
+token_data = {
+    "grant_type": "client_credentials",
+    "client_id": client_id,
+    "client_secret": client_secret,
+    "scope": "https://graph.microsoft.com/.default"
+}
+
+token_res = requests.post(token_url, data=token_data)
+access_token = token_res.json()["access_token"]
+
+headers = {
+    "Authorization": f"Bearer {access_token}"
+}
+
+print("✅ トークン取得成功")
+
+# 2️⃣ Site ID取得
+site_api = f"https://graph.microsoft.com/v1.0/sites/{site_hostname}:{site_path}"
+site_res = requests.get(site_api, headers=headers)
+site_id = site_res.json()["id"]
+
+print("✅ Site ID:", site_id)
+
+# 3️⃣ Drive ID取得
+drive_api = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive"
+drive_res = requests.get(drive_api, headers=headers)
+drive_id = drive_res.json()["id"]
+
+print("✅ Drive ID:", drive_id)
+
+# 4️⃣ testフォルダ属性取得
+folder_api = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{folder_path}"
+folder_res = requests.get(folder_api, headers=headers)
+folder_data = folder_res.json()
+
+print("📂 フォルダ名:", folder_data["name"])
+print("🕒 作成日時:", folder_data["createdDateTime"])
+print("🕒 更新日時:", folder_data["lastModifiedDateTime"])
+print("📦 フォルダ合計サイズ(bytes):", folder_data["size"])
+print("🌐 Web URL:", folder_data["webUrl"])
+
+# 5️⃣ testフォルダ内のファイル一覧取得
+children_api = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{folder_path}:/children"
+children_res = requests.get(children_api, headers=headers)
+children_data = children_res.json()
+
+print("\n---- testフォルダ内 ----")
+
+total_size = 0
+
+for item in children_data.get("value", []):
+    name = item.get("name")
+    size = item.get("size", 0)
+    item_type = "フォルダ" if "folder" in item else "ファイル"
+
+    print("名前:", name)
+    print("種類:", item_type)
+    print("サイズ(bytes):", size)
+    print("作成日時:", item.get("createdDateTime"))
+    print("更新日時:", item.get("lastModifiedDateTime"))
+    print("-----")
+
+    total_size += size
+
+print("📦 中身合計サイズ(bytes):", total_size)
+print("📦 中身合計サイズ(MB):", round(total_size / (1024 * 1024), 3))
+
+↓
+cmd:
+python app.py
+
+--
+
+
