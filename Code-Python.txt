@@ -88,3 +88,85 @@ JSON API直接取得（HTML解析不要）
 
 --
 以上
+import os
+import sys
+import time
+import threading
+from flask import Flask, render_template, redirect, url_for
+
+app = Flask(__name__)
+
+@app.route("/restart")
+def restart():
+
+    def restart_server():
+        time.sleep(1)  # ページ表示の猶予
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
+    threading.Thread(target=restart_server).start()
+
+    return redirect(url_for("restarting"))
+
+
+@app.route("/restarting")
+def restarting():
+    return render_template("restarting.html")
+
+
+@app.route("/open_excel")
+def open_excel():
+    os.startfile("config.xlsx")
+    return "opened"
+
+
+if __name__ == "__main__":
+    app.run(debug=False)
+
+
+反映ボタン
+<button onclick="reflect()">反映</button>
+<script>
+function reflect(){
+    window.location.href = "/restart";
+}
+</script>
+
+
+リダイレクトページ
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>再起動中</title>
+</head>
+<body>
+<h2>設定を反映しています...</h2>
+<p>サーバー再起動中です。しばらくお待ちください。</p>
+<script>
+
+function checkServer(){
+    fetch("/")
+    .then(() => {
+        window.location.href = "/";
+    })
+    .catch(() => {
+        setTimeout(checkServer, 1000);
+    });
+}
+setTimeout(checkServer, 2000);
+</script>
+
+</body>
+</html>
+
+エクセル安全終了
+import win32com.client
+def close_all_excel():
+    try:
+        excel = win32com.client.GetActiveObject("Excel.Application")
+        excel.DisplayAlerts = False  # 保存確認ダイアログを出さない
+        excel.Quit()                # 正常終了
+    except:
+        pass  # Excel起動してなければ何もしない
+
