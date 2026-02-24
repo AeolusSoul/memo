@@ -352,4 +352,4 @@ def sync_excel():
     df = get_latest_data_safely(path)
     return df.to_json(orient='records')
 
-
+あ
