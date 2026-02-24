@@ -281,3 +281,75 @@ python -V
 
 --
 以上
+
+import os
+import time
+
+def wait_forever_until_safe(filepath):
+    """
+    OSがファイルを完全に解放し、エクセルが閉じるまで『何度でも』リトライする
+    """
+    directory = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+    temp_file = os.path.join(directory, f"~${filename}")
+
+    print(f"Checking for {filepath}...")
+
+    while True:
+        # 1. エクセルの「編集中一時ファイル」が存在するかチェック
+        if os.path.exists(temp_file):
+            print("Excel is still editing (Temp file exists)...")
+            time.sleep(1) # 1秒待機
+            continue
+
+        # 2. OSレベルでのロック解除テスト（リネーム）
+        try:
+            # 自分自身を自分自身の名前にリネーム（OSに書き込み権限を確認する）
+            os.rename(filepath, filepath)
+            print("OS has released the lock. Success!")
+            break # ロックが解除されていればループを抜ける
+        except OSError:
+            # エクセルがまだプロセスを掴んでいる、またはOSが書き出し中
+            print("OS is still locking the file. Retrying...")
+            time.sleep(1) # 1秒待機
+
+    return True
+はは
+
+import os
+import time
+import pandas as pd
+
+def get_latest_data_safely(filepath):
+    directory = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+    temp_file = os.path.join(directory, f"~${filename}")
+
+    print("OSの解放を待機中...")
+
+    while True:
+        # 条件1：エクセルの所有者ファイル（~$...）が消えているか
+        if os.path.exists(temp_file):
+            time.sleep(0.5)
+            continue
+
+        # 条件2：OSレベルでのロック解除（リネームテスト）が成功するか
+        try:
+            os.rename(filepath, filepath)
+            # ここまで来れば、OSが「もう誰も使ってないよ」と言っている状態
+            break 
+        except OSError:
+            # エクセルが終了処理中、または保存後のOS書き込み中
+            time.sleep(0.5)
+
+    # 2条件クリア後に読み込み
+    return pd.read_excel(filepath)
+
+# Flaskのルート例
+@app.route('/sync-excel', methods=['POST'])
+def sync_excel():
+    path = "your_file.xlsx"
+    df = get_latest_data_safely(path)
+    return df.to_json(orient='records')
+
+
